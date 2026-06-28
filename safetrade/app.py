@@ -4,6 +4,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from safetrade.broker import OrderResult, PaperBroker
 from safetrade.config import Settings, load_settings
@@ -124,16 +125,30 @@ def _log_result(started_at: str, settings: Settings, result: EngineResult) -> No
     )
 
 
-def configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+def configure_logging(settings: Settings) -> None:
+    log_level = getattr(logging, settings.log_level, logging.INFO)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+
+    if settings.log_file:
+        log_path = Path(settings.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+
+    for handler in handlers:
+        handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(handlers[0])
+    for handler in handlers[1:]:
+        root_logger.addHandler(handler)
 
 
 def main() -> None:
-    configure_logging()
     settings = load_settings()
+    configure_logging(settings)
 
     if not settings.paper_trading:
         raise RuntimeError("Live trading is not implemented yet. Set PAPER_TRADING=true.")

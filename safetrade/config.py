@@ -72,6 +72,8 @@ class Settings:
     candle_limit: int
     loop_interval_seconds: float
     run_once: bool
+    log_file: str
+    log_level: str
     paper_trading: bool
     initial_cash: float
     initial_asset_qty: float
@@ -119,6 +121,8 @@ def load_settings(env_path: str | Path = ".env") -> Settings:
         candle_limit=int(_env_float("CANDLE_LIMIT", 60)),
         loop_interval_seconds=_env_float("LOOP_INTERVAL_SECONDS", 60),
         run_once=_env_bool("RUN_ONCE", False),
+        log_file=_env("LOG_FILE", "logs/safetrade.log"),
+        log_level=_env("LOG_LEVEL", "INFO").upper(),
         paper_trading=_env_bool("PAPER_TRADING", True),
         initial_cash=_env_float("INITIAL_CASH", 99),
         initial_asset_qty=_env_float("INITIAL_ASSET_QTY", 250),

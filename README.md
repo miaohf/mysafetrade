@@ -18,6 +18,8 @@ uv sync
 uv run python main.py
 ```
 
+The program runs continuously. Stop it with `Ctrl+C`.
+
 If you already created `.env`, keep it and update only the optional trading settings you need.
 
 For a 99 USDT account, start conservatively:
@@ -31,6 +33,8 @@ ALLOWED_SYMBOLS=PRL/USDT
 MARKET_DATA_SOURCE=safetrade_public
 KLINE_PERIOD=60
 CANDLE_LIMIT=60
+LOOP_INTERVAL_SECONDS=60
+RUN_ONCE=false
 PAPER_TRADING=true
 INITIAL_CASH=99
 INITIAL_ASSET_QTY=250
@@ -53,6 +57,8 @@ MIN_TRADE_QUOTE=5
 - `MARKET_DATA_SOURCE`: use `safetrade_public` for real public market data, or `mock` for local generated data.
 - `KLINE_PERIOD`: SafeTrade k-line period, defaults to hourly candles with `60`.
 - `CANDLE_LIMIT`: number of candles used by the strategy.
+- `LOOP_INTERVAL_SECONDS`: seconds between each analysis cycle.
+- `RUN_ONCE`: set to `true` for one cycle during testing; keep `false` for daemon mode.
 - `PAPER_TRADING`: must be `true` for now.
 - `INITIAL_CASH`: simulated account cash balance.
 - `INITIAL_ASSET_QTY`: simulated PRL balance.
@@ -65,10 +71,11 @@ MIN_TRADE_QUOTE=5
 
 ## Current Flow
 
-1. `SafeTradePublicMarketDataClient` reads `PRL/USDT` ticker and k-line data from SafeTrade public API.
+1. The daemon reads `PRL/USDT` ticker and k-line data from SafeTrade public API.
 2. `MovingAverageCrossStrategy` returns `buy`, `sell`, or `hold`.
 3. `RiskManager` approves or rejects the signal.
 4. `PaperBroker` simulates the order and updates the portfolio.
+5. The daemon prints one log line for every analysis cycle, then sleeps until the next cycle.
 
 ## Dependency Management
 
