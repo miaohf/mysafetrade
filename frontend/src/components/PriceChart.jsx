@@ -11,13 +11,13 @@ import {
 import { formatChartLabel, fmt } from "../utils";
 
 const tooltipStyle = {
-  background: "#10161f",
-  border: "1px solid #243041",
-  borderRadius: 10,
-  color: "#edf2f7",
+  background: "#172234",
+  border: "1px solid rgba(83, 103, 134, 0.54)",
+  borderRadius: 8,
+  color: "#dbe6f3",
 };
 
-export default function PriceChart({ points }) {
+export default function PriceChart({ points, t }) {
   const chartData = points.map((point) => ({
     time: formatChartLabel(point.timestamp),
     close: point.close,
@@ -28,11 +28,11 @@ export default function PriceChart({ points }) {
   return (
     <div className="chart-wrap">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#243041" strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="time" tick={{ fill: "#8fa0b3", fontSize: 12 }} minTickGap={24} />
+        <LineChart data={chartData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+          <CartesianGrid stroke="rgba(83, 103, 134, 0.34)" strokeDasharray="3 3" vertical={false} />
+          <XAxis dataKey="time" tick={{ fill: "#8291a7", fontSize: 12 }} minTickGap={24} />
           <YAxis
-            tick={{ fill: "#8fa0b3", fontSize: 12 }}
+            tick={{ fill: "#8291a7", fontSize: 12 }}
             domain={["auto", "auto"]}
             tickFormatter={(value) => fmt(value, 3)}
           />
@@ -40,12 +40,12 @@ export default function PriceChart({ points }) {
             contentStyle={tooltipStyle}
             formatter={(value, name) => [fmt(value, 4), name]}
           />
-          <Legend wrapperStyle={{ color: "#c8d7e6", paddingTop: 12 }} />
+          <Legend wrapperStyle={{ color: "#c8d5e6", paddingTop: 4, fontSize: 11 }} />
           <Line
             type="monotone"
             dataKey="close"
-            name="收盘价"
-            stroke="#edf2f7"
+            name={t.closePrice}
+            stroke="#dbe6f3"
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}
@@ -54,7 +54,7 @@ export default function PriceChart({ points }) {
             type="monotone"
             dataKey="ma7"
             name="MA7"
-            stroke="#5eb3ff"
+            stroke="#39a2ff"
             strokeWidth={2}
             dot={false}
           />
@@ -62,7 +62,7 @@ export default function PriceChart({ points }) {
             type="monotone"
             dataKey="ma25"
             name="MA25"
-            stroke="#34d399"
+            stroke="#00c087"
             strokeWidth={2}
             dot={false}
           />

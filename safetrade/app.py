@@ -9,6 +9,7 @@ from pathlib import Path
 from safetrade.broker import OrderResult, PaperBroker
 from safetrade.config import Settings, load_settings
 from safetrade.api_server import start_api_in_background
+from safetrade.bot_state import BotCycleSnapshot, update_cycle
 from safetrade.market import MarketDataClient, MockMarketDataClient, SafeTradePublicMarketDataClient
 from safetrade.risk import Portfolio, RiskManager
 from safetrade.strategy import MovingAverageCrossStrategy, StrategyDecision
@@ -123,6 +124,27 @@ def _log_result(started_at: str, settings: Settings, result: EngineResult) -> No
         result.portfolio.cash,
         result.portfolio.asset_qty,
         portfolio_value,
+    )
+    update_cycle(
+        BotCycleSnapshot(
+            started_at=started_at,
+            symbol=settings.symbol,
+            market_id=settings.market_id,
+            price=result.strategy.reference_price,
+            signal=result.strategy.signal.value,
+            signal_reason=result.strategy.reason,
+            order_executed=result.order.executed,
+            order_side=result.order.signal.value,
+            order_quote=result.order.quote_amount,
+            order_base=result.order.base_amount,
+            fee=result.order.fee,
+            order_reason=result.order.reason,
+            cash=result.portfolio.cash,
+            asset_qty=result.portfolio.asset_qty,
+            value=portfolio_value,
+            paper_trading=settings.paper_trading,
+            loop_interval_seconds=settings.loop_interval_seconds,
+        )
     )
 
 

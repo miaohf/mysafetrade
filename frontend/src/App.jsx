@@ -1,15 +1,24 @@
+import { useEffect, useState } from "react";
 import StatsGrid from "./components/StatsGrid";
+import BotCyclePanel from "./components/BotCyclePanel";
 import PriceChart from "./components/PriceChart";
 import RsiChart from "./components/RsiChart";
 import MaDetail from "./components/MaDetail";
 import CandleTable from "./components/CandleTable";
 import { useAnalysis } from "./hooks/useAnalysis";
+import { template, translations } from "./i18n";
 
 export default function App() {
   const { data, loading, error, updatedAt, reload } = useAnalysis(60000);
+  const [language, setLanguage] = useState(() => localStorage.getItem("safetrade.language") || "zh");
+  const t = translations[language] || translations.zh;
+
+  useEffect(() => {
+    localStorage.setItem("safetrade.language", language);
+  }, [language]);
 
   if (loading && !data) {
-    return <div className="app-shell loading">正在加载 PRL/USDT 行情...</div>;
+    return <div className="app-shell app-shell--loading">{t.loading}</div>;
   }
 
   const meta = data?.meta || {};
@@ -18,63 +27,85 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="hero">
-        <div>
-          <h1>PRL/USDT 分析看板</h1>
-          <p>
-            SafeTrade 公开 API · {meta.kline_period} 分钟 K 线 · 与机器人策略同源计算
-          </p>
+        <div className="hero-title">
+          <h1>{t.appTitle}</h1>
+          <p>{template(t.appSubtitle, { period: meta.kline_period || "-" })}</p>
         </div>
         <div className="toolbar">
           <span className="chip">
             <span className="chip-dot" />
-            自动刷新 60 秒
+            {t.autoRefresh}
           </span>
           {updatedAt ? (
-            <span className="chip">更新于 {updatedAt.toLocaleString()}</span>
+            <span className="chip chip--time">{updatedAt.toLocaleString()}</span>
           ) : null}
-          <button className="btn btn-primary" type="button" onClick={reload}>
-            立即刷新
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => setLanguage((current) => (current === "zh" ? "en" : "zh"))}
+          >
+            {t.language}
+          </button>
+          <button className="btn btn-sm btn-primary" type="button" onClick={reload}>
+            {t.refreshNow}
           </button>
         </div>
       </header>
 
-      {error ? <div className="error-banner">加载失败: {error}</div> : null}
+      {error ? <div className="error-banner">{t.loadFailed}: {error}</div> : null}
 
       {data ? (
-        <>
-          <StatsGrid data={data} />
+        <div className="dashboard">
+          <StatsGrid data={data} t={t} />
 
-          <section className="panel">
+          <section className="panel panel-bot">
             <div className="panel-header">
-              <h2>价格与均线</h2>
-              <span className="panel-caption">收盘价 · MA7 · MA25</span>
+              <h2>{t.botLatestCycle}</h2>
             </div>
-            <PriceChart points={points} />
+            <div className="panel-body panel-body--scroll">
+              <BotCyclePanel botCycle={data.bot_cycle} t={t} compact />
+            </div>
           </section>
 
-          <section className="panel">
+          <section className="panel panel-price">
+            <div className="panel-header">
+              <h2>{t.priceAndMA}</h2>
+              <span className="panel-caption">{t.priceCaption}</span>
+            </div>
+            <div className="panel-body">
+              <PriceChart points={points} t={t} />
+            </div>
+          </section>
+
+          <section className="panel panel-rsi">
             <div className="panel-header">
               <h2>RSI(14)</h2>
-              <span className="panel-caption">虚线: 30 / 70</span>
+              <span className="panel-caption">{t.rsiCaption}</span>
             </div>
-            <RsiChart points={points} />
+            <div className="panel-body">
+              <RsiChart points={points} />
+            </div>
           </section>
 
-          <section className="panel">
+          <section className="panel panel-detail">
             <div className="panel-header">
-              <h2>MA7 / MA25 计算明细</h2>
+              <h2>{t.maDetail}</h2>
             </div>
-            <MaDetail data={data} />
+            <div className="panel-body panel-body--scroll">
+              <MaDetail data={data} t={t} compact />
+            </div>
           </section>
 
-          <section className="panel">
+          <section className="panel panel-table">
             <div className="panel-header">
-              <h2>最近 K 线</h2>
-              <span className="panel-caption">最近 12 根</span>
+              <h2>{t.recentCandles}</h2>
+              <span className="panel-caption">{t.recent12}</span>
             </div>
-            <CandleTable points={points} />
+            <div className="panel-body panel-body--scroll">
+              <CandleTable points={points} t={t} limit={12} compact />
+            </div>
           </section>
-        </>
+        </div>
       ) : null}
     </div>
   );

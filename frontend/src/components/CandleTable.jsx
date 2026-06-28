@@ -1,15 +1,15 @@
-import { fmt, formatTimestamp } from "../utils";
+import { fmt, formatTimestamp, maTrendTone, rsiTone } from "../utils";
 
-export default function CandleTable({ points }) {
-  const rows = [...points].slice(-12).reverse();
+export default function CandleTable({ points, t, limit = 12, compact = false }) {
+  const rows = [...points].slice(-limit).reverse();
 
   return (
     <div className="table-wrap">
-      <table>
+      <table className={compact ? "compact" : ""}>
         <thead>
           <tr>
-            <th>时间</th>
-            <th>收盘</th>
+            <th>{t.time}</th>
+            <th>{t.close}</th>
             <th>MA7</th>
             <th>MA25</th>
             <th>RSI14</th>
@@ -20,9 +20,9 @@ export default function CandleTable({ points }) {
             <tr key={point.timestamp}>
               <td>{formatTimestamp(point.timestamp)}</td>
               <td>{fmt(point.close, 4)}</td>
-              <td>{fmt(point.ma7, 4)}</td>
+              <td className={maTrendTone(point.ma7, point.ma25)}>{fmt(point.ma7, 4)}</td>
               <td>{fmt(point.ma25, 4)}</td>
-              <td>{fmt(point.rsi14, 2)}</td>
+              <td className={rsiTone(point.rsi14)}>{fmt(point.rsi14, 2)}</td>
             </tr>
           ))}
         </tbody>

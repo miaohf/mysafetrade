@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from safetrade.analysis import build_market_analysis
+from safetrade.bot_state import get_cycle
 from safetrade.config import Settings
 from safetrade.market import MockMarketDataClient, SafeTradePublicMarketDataClient
 from safetrade.strategy import MovingAverageCrossStrategy
@@ -43,6 +44,7 @@ def fetch_analysis(settings: Settings) -> dict[str, Any]:
         "candle_limit": settings.candle_limit,
         "market_data_source": settings.market_data_source,
     }
+    analysis["bot_cycle"] = get_cycle()
     return analysis
 
 
@@ -57,15 +59,24 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlparse(self.path).path
 
-        if path == "/api/health":
-            self._send_json({"status": "ok", "symbol": self.settings.symbol})
-            return
+        try:
+            if path == "/api/health":
+                self._send_json({"status": "ok", "symbol": self.settings.symbol})
+                return
 
-        if path == "/api/analysis":
-            self._send_json(fetch_analysis(self.settings))
-            return
+            if path == "/api/analysis":
+                self._send_json(fetch_analysis(self.settings))
+                return
 
-        self._send_json({"error": "not found", "path": path}, status=HTTPStatus.NOT_FOUND)
+            self._send_json({"error": "not found", "path": path}, status=HTTPStatus.NOT_FOUND)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("client disconnected path=%s", path)
+
+    def handle_one_request(self) -> None:
+        try:
+            super().handle_one_request()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("client disconnected during request")
 
     def log_message(self, format: str, *args: Any) -> None:
         logger.info("%s - %s", self.address_string(), format % args)
@@ -82,7 +93,10 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._send_cors_headers()
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("client disconnected while sending response")
 
 
 def start_api_server(settings: Settings, host: str = "127.0.0.1") -> ThreadingHTTPServer:
