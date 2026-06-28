@@ -1,0 +1,10 @@
+[project]
+name = "safetrade"
+version = "0.1.0"
+description = "PRL/USDT paper trading bot for SafeTrade.com"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.uv]
+package = false
