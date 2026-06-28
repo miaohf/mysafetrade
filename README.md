@@ -1,6 +1,20 @@
 # SafeTrade
 
-SafeTrade is a starter automated trading project for SafeTrade.com. Phase 1 is limited to `PRL/USDT` paper trading: it reads SafeTrade public market data, produces a strategy signal, applies risk checks, and simulates a market order.
+SafeTrade is a starter automated trading project for SafeTrade.com. Phase 1 is limited to `PRL/USDT` paper trading.
+
+## Architecture
+
+```text
+frontend/          React dashboard (display only)
+  └─ calls http://127.0.0.1:8787/api/*
+
+safetrade/         Python backend
+  ├─ trading bot   paper trading daemon
+  └─ api_server    REST API for the frontend
+```
+
+- **Backend**: `uv run python main.py` starts the trading bot and API together.
+- **Frontend**: `frontend/` is a separate React app for charts and analysis display.
 
 ## Safety Rules
 
@@ -10,7 +24,7 @@ SafeTrade is a starter automated trading project for SafeTrade.com. Phase 1 is l
 - Phase 1 only allows `PRL/USDT`.
 - Every strategy signal must pass risk checks before an order is created.
 
-## Setup
+## Backend Setup
 
 ```bash
 cp env.example .env
@@ -18,11 +32,41 @@ uv sync
 uv run python main.py
 ```
 
-The program runs continuously. Stop it with `Ctrl+C`.
+The backend runs continuously. Stop it with `Ctrl+C`.
 
-If you already created `.env`, keep it and update only the optional trading settings you need.
+API endpoints:
 
-For a 99 USDT account, start conservatively:
+- `GET /api/health`
+- `GET /api/analysis`
+
+Default API URL: `http://127.0.0.1:8787`
+
+## Frontend Setup
+
+Development mode with hot reload:
+
+```bash
+# terminal 1: backend
+uv run python main.py
+
+# terminal 2: frontend
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to the backend.
+
+Production build:
+
+```bash
+cd frontend
+npm install
+npm run build
+npm run preview
+```
+
+## Recommended `.env`
 
 ```env
 EXCHANGE=safetrade
@@ -33,37 +77,32 @@ ALLOWED_SYMBOLS=PRL/USDT
 MARKET_DATA_SOURCE=safetrade_public
 KLINE_PERIOD=60
 CANDLE_LIMIT=60
-LOOP_INTERVAL_SECONDS=60
+LOOP_INTERVAL_SECONDS=300
 RUN_ONCE=false
+LOG_FILE=logs/safetrade.log
+LOG_LEVEL=INFO
+ENABLE_API=true
+API_PORT=8787
 PAPER_TRADING=true
 INITIAL_CASH=99
 INITIAL_ASSET_QTY=250
-MAX_POSITION_PCT=0.2
-MAX_ORDER_QUOTE=10
-MIN_CASH_RESERVE=20
+MAX_POSITION_PCT=0.5
+MAX_ORDER_QUOTE=5
+MIN_CASH_RESERVE=40
 MIN_TRADE_QUOTE=5
 ```
 
 ## Environment Variables
 
-- `EXCHANGE`: exchange name, fixed to `safetrade` in phase 1.
-- `EXCHANGE_BASE_URL`: SafeTrade website base URL, defaults to `https://safetrade.com`.
-- `API_BASE_URL`: SafeTrade public API URL, defaults to `https://safe.trade/api/v2`.
-- `API_KEY`: exchange API key, currently not used by paper trading.
-- `API_SECRET`: exchange API secret, currently not used by paper trading.
-- `KID`: optional key id if your exchange requires it.
-- `SYMBOL`: trading symbol, fixed to `PRL/USDT` in phase 1.
-- `ALLOWED_SYMBOLS`: symbol allowlist, fixed to `PRL/USDT` in phase 1.
-- `MARKET_DATA_SOURCE`: use `safetrade_public` for real public market data, or `mock` for local generated data.
-- `KLINE_PERIOD`: SafeTrade k-line period, defaults to hourly candles with `60`.
-- `CANDLE_LIMIT`: number of candles used by the strategy.
-- `LOOP_INTERVAL_SECONDS`: seconds between each analysis cycle.
-- `RUN_ONCE`: set to `true` for one cycle during testing; keep `false` for daemon mode.
+- `ENABLE_API`: start REST API with the trading bot, defaults to `true`.
+- `API_PORT`: backend API port, defaults to `8787`.
+- `LOOP_INTERVAL_SECONDS`: seconds between each trading analysis cycle.
+- `RUN_ONCE`: set to `true` for one cycle during testing.
+- `LOG_FILE`: file path for persistent logs.
+- `LOG_LEVEL`: logging level.
 - `PAPER_TRADING`: must be `true` for now.
 - `INITIAL_CASH`: simulated account cash balance.
 - `INITIAL_ASSET_QTY`: simulated PRL balance.
-- `FEE_RATE`: simulated trading fee rate.
-- `MOCK_START_PRICE`: mock PRL price used by local paper trading.
 - `MAX_POSITION_PCT`: maximum portfolio value allowed in one asset.
 - `MAX_ORDER_QUOTE`: maximum quote currency amount per order.
 - `MIN_CASH_RESERVE`: cash that must remain after buys.
@@ -71,30 +110,23 @@ MIN_TRADE_QUOTE=5
 
 ## Current Flow
 
-1. The daemon reads `PRL/USDT` ticker and k-line data from SafeTrade public API.
+1. Backend reads `PRL/USDT` ticker and k-line data from SafeTrade public API.
 2. `MovingAverageCrossStrategy` returns `buy`, `sell`, or `hold`.
 3. `RiskManager` approves or rejects the signal.
 4. `PaperBroker` simulates the order and updates the portfolio.
-5. The daemon prints one log line for every analysis cycle, then sleeps until the next cycle.
+5. Frontend reads `/api/analysis` and renders charts and indicators.
 
 ## Dependency Management
 
-This project uses `uv` and `pyproject.toml` for dependencies. Add future packages with:
+Python:
 
 ```bash
 uv add package-name
 ```
 
-Run local commands through uv:
+Frontend:
 
 ```bash
-uv run python main.py
-uv run python -m compileall safetrade main.py
+cd frontend
+npm install
 ```
-
-## Next Steps
-
-- Add a real SafeTrade market data adapter for `PRL/USDT`.
-- Add historical data backtesting before live trading.
-- Add structured logs for signals, decisions, and orders.
-- Add tests for strategy, risk checks, and broker accounting.

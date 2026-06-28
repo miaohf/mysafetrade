@@ -8,6 +8,7 @@ from pathlib import Path
 
 from safetrade.broker import OrderResult, PaperBroker
 from safetrade.config import Settings, load_settings
+from safetrade.api_server import start_api_in_background
 from safetrade.market import MarketDataClient, MockMarketDataClient, SafeTradePublicMarketDataClient
 from safetrade.risk import Portfolio, RiskManager
 from safetrade.strategy import MovingAverageCrossStrategy, StrategyDecision
@@ -152,6 +153,9 @@ def main() -> None:
 
     if not settings.paper_trading:
         raise RuntimeError("Live trading is not implemented yet. Set PAPER_TRADING=true.")
+
+    if settings.enable_api:
+        start_api_in_background(settings)
 
     engine = build_engine(settings)
     run_daemon(engine)
