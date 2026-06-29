@@ -1,4 +1,4 @@
-import { fmt, formatTimestamp, sideTone, signalTone } from "../utils";
+import { fmt, fmtCompact, formatTimestamp, sideTone, signalTone, volumeTone } from "../utils";
 
 function Item({ label, value, tone = "" }) {
   return (
@@ -23,6 +23,25 @@ export default function BotCyclePanel({ botCycle, t, compact = false }) {
         label={t.strategySignal}
         value={(botCycle.signal || "-").toUpperCase()}
         tone={signalTone(botCycle.signal)}
+      />
+      <Item
+        label={t.rawSignal}
+        value={(botCycle.raw_signal || "-").toUpperCase()}
+        tone={signalTone(botCycle.raw_signal)}
+      />
+      <Item label="RSI14" value={fmt(botCycle.rsi14, 2)} />
+      <Item
+        label={t.volumeRatio}
+        value={botCycle.volume_ratio === null || botCycle.volume_ratio === undefined ? "-" : `${fmt(botCycle.volume_ratio, 2)}x`}
+        tone={volumeTone(botCycle.volume_ratio, botCycle.min_volume_ratio || 1)}
+      />
+      <Item label={t.quoteVolume} value={fmtCompact(botCycle.quote_volume, 2)} />
+      <Item label={t.spread} value={botCycle.spread_pct == null ? "-" : `${fmt(botCycle.spread_pct, 2)}%`} />
+      <Item label={t.askBidRatio} value={fmt(botCycle.ask_bid_ratio, 2)} />
+      <Item
+        label={t.buyPressure}
+        value={botCycle.buy_quote_ratio == null ? "-" : `${(botCycle.buy_quote_ratio * 100).toFixed(0)}%`}
+        tone={botCycle.buy_quote_ratio >= 0.55 ? "up" : "down"}
       />
       <Item label={t.signalReason} value={botCycle.signal_reason || "-"} />
       <Item

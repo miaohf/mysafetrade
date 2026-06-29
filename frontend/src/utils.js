@@ -5,6 +5,20 @@ export function fmt(value, digits = 4) {
   return Number(value).toFixed(digits);
 }
 
+export function fmtCompact(value, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "-";
+  }
+  const num = Number(value);
+  if (Math.abs(num) >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(digits)}M`;
+  }
+  if (Math.abs(num) >= 1_000) {
+    return `${(num / 1_000).toFixed(digits)}K`;
+  }
+  return num.toFixed(digits);
+}
+
 export function formatTimestamp(value) {
   return value.replace("T", " ").replace("+00:00", " UTC");
 }
@@ -28,6 +42,14 @@ export function changeTone(value) {
     return "";
   }
   return num > 0 ? "up" : "down";
+}
+
+export function volumeTone(ratio, threshold = 1) {
+  const num = parseSignedNumber(ratio);
+  if (num === null) {
+    return "";
+  }
+  return num >= threshold ? "up" : "down";
 }
 
 export function rsiTone(value) {

@@ -4,7 +4,6 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 
 from safetrade.broker import OrderResult, PaperBroker
 from safetrade.config import Settings, load_settings
@@ -12,7 +11,8 @@ from safetrade.api_server import start_api_in_background
 from safetrade.bot_state import BotCycleSnapshot, update_cycle
 from safetrade.market import MarketDataClient, MockMarketDataClient, SafeTradePublicMarketDataClient
 from safetrade.risk import Portfolio, RiskManager
-from safetrade.strategy import MovingAverageCrossStrategy, StrategyDecision
+from safetrade.microstructure import MicrostructureMetrics, analyze_microstructure
+from safetrade.strategy import MovingAverageCrossStrategy, StrategyDecision, build_strategy
 
 logger = logging.getLogger("safetrade")
 
@@ -22,6 +22,7 @@ class EngineResult:
     strategy: StrategyDecision
     order: OrderResult
     portfolio: Portfolio
+    microstructure: MicrostructureMetrics
 
 
 class TradingEngine:
@@ -41,7 +42,10 @@ class TradingEngine:
 
     def run_once(self) -> EngineResult:
         candles = self.market.get_recent_candles(self.settings.symbol, limit=self.settings.candle_limit)
-        strategy_decision = self.strategy.decide(candles)
+        order_book = self.market.get_order_book(self.settings.symbol, limit=self.settings.order_book_limit)
+        recent_trades = self.market.get_recent_trades(self.settings.symbol, limit=self.settings.recent_trades_limit)
+        microstructure = analyze_microstructure(order_book, recent_trades)
+        strategy_decision = self.strategy.decide(candles, microstructure)
         risk_decision = self.risk.evaluate(self.broker.portfolio, strategy_decision)
         order = self.broker.execute_market_order(risk_decision, strategy_decision.reference_price)
 
@@ -49,6 +53,7 @@ class TradingEngine:
             strategy=strategy_decision,
             order=order,
             portfolio=self.broker.portfolio,
+            microstructure=microstructure,
         )
 
 
@@ -61,7 +66,7 @@ def build_engine(settings: Settings) -> TradingEngine:
     else:
         market = MockMarketDataClient(start_price=settings.mock_start_price)
 
-    strategy = MovingAverageCrossStrategy()
+    strategy = build_strategy(settings)
     broker = PaperBroker(
         Portfolio(cash=settings.initial_cash, asset_qty=settings.initial_asset_qty),
         fee_rate=settings.fee_rate,
@@ -106,7 +111,9 @@ def run_daemon(engine: TradingEngine) -> None:
 def _log_result(started_at: str, settings: Settings, result: EngineResult) -> None:
     portfolio_value = result.portfolio.total_value(result.strategy.reference_price)
     logger.info(
-        "cycle_completed started_at=%s symbol=%s market_id=%s price=%.8f signal=%s "
+        "cycle_completed started_at=%s symbol=%s market_id=%s price=%.8f signal=%s raw_signal=%s "
+        "rsi14=%s volume=%.8f avg_volume=%s volume_ratio=%s quote_volume=%.2f "
+        "spread_pct=%s ask_bid_ratio=%s buy_quote_ratio=%s "
         "signal_reason=%r order_executed=%s order_side=%s order_quote=%.2f "
         "order_base=%.8f fee=%.4f order_reason=%r cash=%.2f asset_qty=%.8f value=%.2f",
         started_at,
@@ -114,6 +121,15 @@ def _log_result(started_at: str, settings: Settings, result: EngineResult) -> No
         settings.market_id,
         result.strategy.reference_price,
         result.strategy.signal.value,
+        result.strategy.raw_signal.value,
+        _fmt_optional(result.strategy.rsi14),
+        result.strategy.volume,
+        _fmt_optional(result.strategy.average_volume),
+        _fmt_optional(result.strategy.volume_ratio),
+        result.strategy.quote_volume,
+        _fmt_optional(result.microstructure.spread_pct),
+        _fmt_optional(result.microstructure.ask_bid_ratio),
+        _fmt_optional(result.microstructure.buy_quote_ratio),
         result.strategy.reason,
         result.order.executed,
         result.order.signal.value,
@@ -132,7 +148,19 @@ def _log_result(started_at: str, settings: Settings, result: EngineResult) -> No
             market_id=settings.market_id,
             price=result.strategy.reference_price,
             signal=result.strategy.signal.value,
+            raw_signal=result.strategy.raw_signal.value,
             signal_reason=result.strategy.reason,
+            rsi14=result.strategy.rsi14,
+            volume=result.strategy.volume,
+            average_volume=result.strategy.average_volume,
+            volume_ratio=result.strategy.volume_ratio,
+            min_volume_ratio=settings.strategy_min_volume_ratio,
+            quote_volume=result.strategy.quote_volume,
+            average_quote_volume=result.strategy.average_quote_volume,
+            min_quote_volume=settings.strategy_min_quote_volume,
+            spread_pct=result.microstructure.spread_pct,
+            ask_bid_ratio=result.microstructure.ask_bid_ratio,
+            buy_quote_ratio=result.microstructure.buy_quote_ratio,
             order_executed=result.order.executed,
             order_side=result.order.signal.value,
             order_quote=result.order.quote_amount,
@@ -148,13 +176,19 @@ def _log_result(started_at: str, settings: Settings, result: EngineResult) -> No
     )
 
 
+def _fmt_optional(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.4f}"
+
+
 def configure_logging(settings: Settings) -> None:
     log_level = getattr(logging, settings.log_level, logging.INFO)
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     handlers: list[logging.Handler] = [logging.StreamHandler()]
 
     if settings.log_file:
-        log_path = Path(settings.log_file)
+        log_path = settings.log_file_path
         log_path.parent.mkdir(parents=True, exist_ok=True)
         handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
 

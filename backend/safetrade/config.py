@@ -11,6 +11,14 @@ DEFAULT_API_BASE_URL = "https://safe.trade/api/v2"
 DEFAULT_SYMBOL = "PRL/USDT"
 DEFAULT_ALLOWED_SYMBOLS = (DEFAULT_SYMBOL,)
 DEFAULT_MARKET_DATA_SOURCE = "safetrade_public"
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+
+
+def resolve_backend_path(path: str | Path) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    return BACKEND_ROOT / candidate
 
 
 def _load_dotenv(path: Path) -> None:
@@ -85,6 +93,15 @@ class Settings:
     max_order_quote: float
     min_cash_reserve: float
     min_trade_quote: float
+    strategy_volume_window: int
+    strategy_min_volume_ratio: float
+    strategy_min_quote_volume: float
+    strategy_max_buy_rsi: float
+    order_book_limit: int
+    recent_trades_limit: int
+    strategy_max_spread_pct: float
+    strategy_max_ask_bid_ratio: float
+    strategy_min_buy_trade_ratio: float
 
     @property
     def has_api_credentials(self) -> bool:
@@ -93,6 +110,10 @@ class Settings:
     @property
     def market_id(self) -> str:
         return self.symbol.replace("/", "").lower()
+
+    @property
+    def log_file_path(self) -> Path:
+        return resolve_backend_path(self.log_file)
 
     def validate(self) -> None:
         if self.exchange != DEFAULT_EXCHANGE:
@@ -105,9 +126,25 @@ class Settings:
         if self.market_data_source not in {"safetrade_public", "mock"}:
             raise ValueError("MARKET_DATA_SOURCE must be 'safetrade_public' or 'mock'")
 
+        if self.strategy_volume_window <= 0:
+            raise ValueError("STRATEGY_VOLUME_WINDOW must be positive")
 
-def load_settings(env_path: str | Path = ".env") -> Settings:
-    _load_dotenv(Path(env_path))
+        if self.strategy_min_volume_ratio < 0:
+            raise ValueError("STRATEGY_MIN_VOLUME_RATIO must not be negative")
+
+        if self.strategy_min_quote_volume < 0:
+            raise ValueError("STRATEGY_MIN_QUOTE_VOLUME must not be negative")
+
+        if self.order_book_limit <= 0:
+            raise ValueError("ORDER_BOOK_LIMIT must be positive")
+
+        if self.recent_trades_limit <= 0:
+            raise ValueError("RECENT_TRADES_LIMIT must be positive")
+
+
+def load_settings(env_path: str | Path | None = None) -> Settings:
+    env_file = Path(env_path) if env_path is not None else BACKEND_ROOT / ".env"
+    _load_dotenv(env_file)
 
     settings = Settings(
         exchange=_env("EXCHANGE", DEFAULT_EXCHANGE).lower(),
@@ -136,6 +173,15 @@ def load_settings(env_path: str | Path = ".env") -> Settings:
         max_order_quote=_env_float("MAX_ORDER_QUOTE", 10),
         min_cash_reserve=_env_float("MIN_CASH_RESERVE", 20),
         min_trade_quote=_env_float("MIN_TRADE_QUOTE", 5),
+        strategy_volume_window=int(_env_float("STRATEGY_VOLUME_WINDOW", 20)),
+        strategy_min_volume_ratio=_env_float("STRATEGY_MIN_VOLUME_RATIO", 1.05),
+        strategy_min_quote_volume=_env_float("STRATEGY_MIN_QUOTE_VOLUME", 50),
+        strategy_max_buy_rsi=_env_float("STRATEGY_MAX_BUY_RSI", 75),
+        order_book_limit=int(_env_float("ORDER_BOOK_LIMIT", 20)),
+        recent_trades_limit=int(_env_float("RECENT_TRADES_LIMIT", 20)),
+        strategy_max_spread_pct=_env_float("STRATEGY_MAX_SPREAD_PCT", 2.0),
+        strategy_max_ask_bid_ratio=_env_float("STRATEGY_MAX_ASK_BID_RATIO", 1.5),
+        strategy_min_buy_trade_ratio=_env_float("STRATEGY_MIN_BUY_TRADE_RATIO", 0.55),
     )
     settings.validate()
     return settings

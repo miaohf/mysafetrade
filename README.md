@@ -5,15 +5,16 @@ SafeTrade is a starter automated trading project for SafeTrade.com. Phase 1 is l
 ## Architecture
 
 ```text
+backend/           Python backend
+  ├─ safetrade/    trading bot + REST API package
+  ├─ main.py       entry point
+  └─ .env          backend configuration
+
 frontend/          React dashboard (display only)
   └─ calls http://127.0.0.1:8787/api/*
-
-safetrade/         Python backend
-  ├─ trading bot   paper trading daemon
-  └─ api_server    REST API for the frontend
 ```
 
-- **Backend**: `uv run python main.py` starts the trading bot and API together.
+- **Backend**: `cd backend && uv run python main.py` starts the trading bot and API together.
 - **Frontend**: `frontend/` is a separate React app for charts and analysis display.
 
 ## Safety Rules
@@ -27,6 +28,7 @@ safetrade/         Python backend
 ## Backend Setup
 
 ```bash
+cd backend
 cp env.example .env
 uv sync
 uv run python main.py
@@ -47,6 +49,7 @@ Development mode with hot reload:
 
 ```bash
 # terminal 1: backend
+cd backend
 uv run python main.py
 
 # terminal 2: frontend
@@ -90,6 +93,15 @@ MAX_POSITION_PCT=0.5
 MAX_ORDER_QUOTE=5
 MIN_CASH_RESERVE=40
 MIN_TRADE_QUOTE=5
+STRATEGY_VOLUME_WINDOW=20
+STRATEGY_MIN_VOLUME_RATIO=1.05
+STRATEGY_MIN_QUOTE_VOLUME=50
+STRATEGY_MAX_BUY_RSI=75
+ORDER_BOOK_LIMIT=10
+RECENT_TRADES_LIMIT=20
+STRATEGY_MAX_SPREAD_PCT=2.0
+STRATEGY_MAX_ASK_BID_RATIO=1.5
+STRATEGY_MIN_BUY_TRADE_RATIO=0.55
 ```
 
 ## Environment Variables
@@ -107,11 +119,20 @@ MIN_TRADE_QUOTE=5
 - `MAX_ORDER_QUOTE`: maximum quote currency amount per order.
 - `MIN_CASH_RESERVE`: cash that must remain after buys.
 - `MIN_TRADE_QUOTE`: minimum order size.
+- `STRATEGY_VOLUME_WINDOW`: previous candle count used as the volume baseline.
+- `STRATEGY_MIN_VOLUME_RATIO`: buy signals require current volume / average volume to meet this ratio.
+- `STRATEGY_MIN_QUOTE_VOLUME`: buy signals require enough estimated USDT turnover in the latest candle.
+- `STRATEGY_MAX_BUY_RSI`: buy signals are blocked when RSI is at or above this value.
+- `ORDER_BOOK_LIMIT`: number of order book levels fetched from the public API.
+- `RECENT_TRADES_LIMIT`: number of recent market trades fetched for microstructure analysis.
+- `STRATEGY_MAX_SPREAD_PCT`: buy signals require bid/ask spread to stay below this percentage.
+- `STRATEGY_MAX_ASK_BID_RATIO`: buy signals require ask-side depth not to dominate bid-side depth too much.
+- `STRATEGY_MIN_BUY_TRADE_RATIO`: buy signals require recent market trades to show enough buy-side pressure.
 
 ## Current Flow
 
-1. Backend reads `PRL/USDT` ticker and k-line data from SafeTrade public API.
-2. `MovingAverageCrossStrategy` returns `buy`, `sell`, or `hold`.
+1. Backend reads `PRL/USDT` ticker, k-line, order book, and recent trades from SafeTrade public API.
+2. `MovingAverageCrossStrategy` starts from MA7/MA25 crosses, then confirms buy signals with volume, quote volume, RSI, spread, depth, and recent trade pressure filters.
 3. `RiskManager` approves or rejects the signal.
 4. `PaperBroker` simulates the order and updates the portfolio.
 5. Frontend reads `/api/analysis` and renders charts and indicators.
@@ -121,6 +142,7 @@ MIN_TRADE_QUOTE=5
 Python:
 
 ```bash
+cd backend
 uv add package-name
 ```
 

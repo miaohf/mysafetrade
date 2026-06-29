@@ -15,7 +15,19 @@ class BotCycleSnapshot:
     market_id: str
     price: float
     signal: str
+    raw_signal: str
     signal_reason: str
+    rsi14: float | None
+    volume: float
+    average_volume: float | None
+    volume_ratio: float | None
+    min_volume_ratio: float
+    quote_volume: float
+    average_quote_volume: float | None
+    min_quote_volume: float
+    spread_pct: float | None
+    ask_bid_ratio: float | None
+    buy_quote_ratio: float | None
     order_executed: bool
     order_side: str
     order_quote: float
